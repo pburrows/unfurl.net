@@ -1,0 +1,28 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Unfurl.Net.Tests", "Unfurl.Net.Tests\Unfurl.Net.Tests.csproj", "{1C19F448-732B-4277-B9FC-B1716DE8E850}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Unfurl.Net", "Unfurl.Net\Unfurl.Net.csproj", "{369AA6E4-BE02-4891-97C4-A2B992A4F17C}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{1C19F448-732B-4277-B9FC-B1716DE8E850}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1C19F448-732B-4277-B9FC-B1716DE8E850}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1C19F448-732B-4277-B9FC-B1716DE8E850}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1C19F448-732B-4277-B9FC-B1716DE8E850}.Release|Any CPU.Build.0 = Release|Any CPU
+		{369AA6E4-BE02-4891-97C4-A2B992A4F17C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{369AA6E4-BE02-4891-97C4-A2B992A4F17C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{369AA6E4-BE02-4891-97C4-A2B992A4F17C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{369AA6E4-BE02-4891-97C4-A2B992A4F17C}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
