@@ -4,16 +4,15 @@ A .net metadata scraper that supports X (nee Twitter) Cards and Open Graph.
 
 ## Installation
 
-* Unfurl.Net is published as a [NuGet package](https://www.nuget.org/packages/Unfurl.Net). Download from your favorite nuget package manager.
+Unfurl.Net is published as a [NuGet package](https://www.nuget.org/packages/Unfurl.Net). Download from your favorite nuget package manager.
 
-or
+--or--
 
-* Install from the command line with:
+Install from the command line with:
 
 ```bash
 dotnet add package Unfurl.Net
 ```
-
 
 ## Overview
 
