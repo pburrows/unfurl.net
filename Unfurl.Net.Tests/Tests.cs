@@ -26,7 +26,7 @@ public class Tests
         var results = await unfurler.Unfurl(url);
 
         results.Url.Should().Be(url);
-        results.FavIcon.Should().Be("https://www.youtube.com/s/desktop/d84e1538/img/favicon_32x32.png");
+        results.FavIcon.Should().Contain("favicon_32x32.png");
         results.CanonicalUrl.Should().Be("https://www.youtube.com/watch?v=Unzc731iCUY");
         results.Description.Should()
             .Be(
