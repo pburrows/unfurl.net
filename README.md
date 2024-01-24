@@ -1,6 +1,21 @@
 # Unfurl.Net
 
-A .net metadata scraper that supports X (nee Twitter) Cards, Open Graph, and oEmbed
+A .net metadata scraper that supports X (nee Twitter) Cards and Open Graph.
+
+## Installation
+
+* Unfurl.Net is published as a [NuGet package](https://www.nuget.org/packages/Unfurl.Net). Download from your favorite nuget package manager.
+
+or
+
+* Install from the command line with:
+
+```bash
+dotnet add package Unfurl.Net
+```
+
+
+## Overview
 
 Unfurl.Net is inspired by the [unfurl.js](https://github.com/jacktuck/unfurl) nodejs project which parses meta data from HTML content and turns it into a convenient object model for displaying URL previews and cards similar to how Facebook, Slack, Discord, or Twitter do. 
 
