@@ -66,7 +66,7 @@ public class Unfurler
             logger?.LogWarning("OEmbedHttpClient not set. You should either set a value for OEmbedHttpClient or turn off oEmbed parsing by setting LoadOEmbed = false");
             client = new HttpClient();
         }
-        var oEmbedContent = await GetOembedContent(client, result.OEmbedLink!, options?.UserAgent ?? "Unfurl.Net/1.0");
+        var oEmbedContent = await GetOembedContent(client, result.OEmbedLink!, options?.UserAgent ?? "Unfurl.Net/1.1");
         result.OEmbed = oEmbedContent;
     }
 
@@ -242,7 +242,7 @@ public class Unfurler
     private async Task<HtmlDocument?> GetDocument(string url, UnfurlOptions? options, UnfurlResult result)
     {
         var web = new HtmlWeb();
-        web.UserAgent = options?.UserAgent ?? "Unfurl.Net/1.0";
+        web.UserAgent = options?.UserAgent ?? "Unfurl.Net/1.1";
         web.MaxAutoRedirects = options?.MaximumRedirects;
         web.CaptureRedirect = options?.MaximumRedirects == null;
 
