@@ -8,7 +8,7 @@ public class Tests
     public async Task CanLoadATwitterCard()
     {
         var unfurler = new Unfurler();
-        var url = "https://developer.twitter.com/en/docs/twitter-for-websites/cards/overview/markup";
+        var url = "https://developer.x.com/en/docs/x-for-websites/cards/overview/markup";
         var results = await unfurler.Unfurl(url);
 
         results.Url.Should().Be(url);
@@ -23,7 +23,7 @@ public class Tests
     {
         var unfurler = new Unfurler();
         var url = "https://www.youtube.com/watch?v=Unzc731iCUY";
-        var results = await unfurler.Unfurl(url);
+        var results = await unfurler.Unfurl(url, new() {LoadOEmbed = true});
 
         results.Url.Should().Be(url);
         results.FavIcon.Should().Contain("favicon_32x32.png");
@@ -31,11 +31,9 @@ public class Tests
         results.Description.Should()
             .Be(
                 "MIT How to Speak, IAP 2018Instructor: Patrick WinstonView the complete course: https://ocw.mit.edu/how_to_speakPatrick Winston&#39;s How to Speak talk has been a...");
-        results.Keywords.Count.Should().Be(1);
+        results.Keywords.Count.Should().BeGreaterThan(1);
         results.Keywords[0].Should().Be("Aloud");
-        results.OEmbedLink.Should()
-            .Be(
-                "https://www.youtube.com/oembed?format=json&amp;url=https%3A%2F%2Fwww.youtube.com%2Fwatch%3Fv%3DUnzc731iCUY");
+
         results.XTwitter.Card.Should().Be("player");
         results.XTwitter.Image.Should().Be("https://i.ytimg.com/vi/Unzc731iCUY/maxresdefault.jpg");
         results.XTwitter.Title.Should().Be("How to Speak");
@@ -50,6 +48,14 @@ public class Tests
             .Be(
                 "MIT How to Speak, IAP 2018Instructor: Patrick WinstonView the complete course: https://ocw.mit.edu/how_to_speakPatrick Winston&#39;s How to Speak talk has been a...");
         results.OpenGraph.Type.Should().Be("video.other");
+
+
+        results.OEmbed.Should().NotBeNull();
+        results.OEmbed!.Title.Should().StartWith("How to Speak");
+        results.OEmbed!.Type.Should().Be(OEmbedTypes.Video);
+        var video = results.OEmbed as OEmbedVideo;
+        video.Should().NotBeNull();
+        video!.Html.Should().StartWith("<");
     }
 
     [Fact]
@@ -70,6 +76,57 @@ public class Tests
         var results = await unfurler.Unfurl(url);
 
         results.Url.Should().Be(url);
-        results.OpenGraph.Title.Should().Be("Alternative Hip-Hop");
+        results.OpenGraph.Should().NotBeNull();
+        results.OpenGraph!.Title.Should().Be("Alternative Hip-Hop");
+    }
+
+    [Fact]
+    public async Task CanParseMsFormOembed()
+    {
+        var httpClient = new HttpClient();
+        // https://youtu.be/5EI0OP7o8cM?si=Iu1qnqk8aXrkc_Bi
+        var unfurler = new Unfurler();
+        var url = "https://forms.office.com/r/YLPA60FDtJ";
+        var results = await unfurler.Unfurl(url, new UnfurlOptions()
+        {
+            LoadOEmbed = true,
+            MaximumRedirects = 2,
+            OEmbedHttpClient = httpClient,
+        });
+
+        results.OEmbed.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task CanParseYouTubeShareLink()
+    {
+        var unfurler = new Unfurler();
+        var url = "https://youtu.be/5EI0OP7o8cM?si=Iu1qnqk8aXrkc_Bi";
+        var results = await unfurler.Unfurl(url, new UnfurlOptions
+        {
+            MaximumRedirects = 2,
+            LoadOEmbed = true
+        });
+
+        results.OpenGraph.Should().NotBeNull();
+        results.OpenGraph!.Title.Should().Be("If Beethoven Were A METAL Bassist...");
+        results.OEmbed.Should().NotBeNull();
+        results.OEmbed!.Title.Should().Be("If Beethoven Were A METAL Bassist...");
+        results.OEmbed!.Type.Should().Be(OEmbedTypes.Video);
+        var video = results.OEmbed as OEmbedVideo;
+        video.Should().NotBeNull();
+        video!.Html.Should().StartWith("<");
+    }
+
+    [Fact]
+    public async Task DoesntParseOembedWhenToldNotTo()
+    {
+        var unfurler = new Unfurler();
+        var url = "https://youtu.be/5EI0OP7o8cM?si=Iu1qnqk8aXrkc_Bi";
+        var results = await unfurler.Unfurl(url, new UnfurlOptions() { LoadOEmbed = false, MaximumRedirects = 2 });
+
+        results.OpenGraph.Should().NotBeNull();
+        results.OpenGraph!.Title.Should().Be("If Beethoven Were A METAL Bassist...");
+        results.OEmbed.Should().BeNull();
     }
 }

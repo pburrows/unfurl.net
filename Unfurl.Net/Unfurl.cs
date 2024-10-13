@@ -6,12 +6,24 @@ using System.Net.Http;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Web;
+using System.Xml.Linq;
+using System.Xml.XPath;
 using HtmlAgilityPack;
+using Microsoft.Extensions.Logging;
+using Newtonsoft.Json.Linq;
 
 namespace Unfurl.Net;
 
 public class Unfurler
 {
+    private readonly ILogger? logger = null;
+
+    public Unfurler(ILogger? logger = null)
+    {
+        this.logger = logger;
+    }
+
     public async Task<UnfurlResult> Unfurl(string url, UnfurlOptions? options = null)
     {
         var result = new UnfurlResult();
@@ -31,8 +43,31 @@ public class Unfurler
         ParseDetails(head, result);
         ParseXTwitterMetadata(head, result);
         ParseOgMetadata(head, result);
+        await ParseOEmbedMetadata(result, options);
 
         return result;
+    }
+
+    private async Task ParseOEmbedMetadata(UnfurlResult result, UnfurlOptions? options = null)
+    {
+        if (options is null or { LoadOEmbed: false })
+        {
+            return; // make users positively opt-in to parsing oembed
+        }
+
+        if (string.IsNullOrEmpty(result.OEmbedLink))
+        {
+            return;
+        }
+
+        var client = options?.OEmbedHttpClient;
+        if (client == null)
+        {
+            logger?.LogWarning("OEmbedHttpClient not set. You should either set a value for OEmbedHttpClient or turn off oEmbed parsing by setting LoadOEmbed = false");
+            client = new HttpClient();
+        }
+        var oEmbedContent = await GetOembedContent(client, result.OEmbedLink!, options?.UserAgent ?? "Unfurl.Net/1.0");
+        result.OEmbed = oEmbedContent;
     }
 
     private void ParseDetails(HtmlNode head, UnfurlResult result)
@@ -44,6 +79,10 @@ public class Unfurler
         result.AppleTouchIcon = GetAttributeValue(head, "link[@rel='apple-touch-icon']", "href");
         result.OEmbedLink = GetAttributeValue(head, "link[@type='application/json+oembed']", "href") ??
                             GetAttributeValue(head, "link[@type='text/xml+oembed']", "href");
+        if (result.OEmbedLink != null)
+        {
+            result.OEmbedLink = HttpUtility.HtmlDecode(result.OEmbedLink);
+        }
 
         var titleNode = head.SelectSingleNode("title");
         if (titleNode != null)
@@ -79,11 +118,6 @@ public class Unfurler
         foreach (var tag in Tags.XTwitterTags)
         {
             result.XTwitter[tag.Label] = GetAttributeValue(head, tag.XPath, "content");
-            // var node = head.SelectSingleNode(tag.XPath);
-            // if (node != null)
-            // {
-            //     result.XTwitter[tag.Label] = node.GetAttributeValue("content", "");
-            // }
         }
     }
 
@@ -99,7 +133,7 @@ public class Unfurler
         ParseOgVideos(head, result);
         ParseOgAudio(head, result);
     }
-    
+
     private static void ParseOgAudio(HtmlNode head, UnfurlResult result)
     {
         if (string.IsNullOrEmpty(result.OpenGraph?.Audio)) return;
@@ -238,5 +272,155 @@ public class Unfurler
 
         result.Encoding = doc.Encoding.BodyName;
         return doc;
+    }
+
+    private async Task<OEmbedBase?> GetOembedContent(HttpClient httpClient, string url, string userAgent)
+    {
+        var uri = new Uri(url);
+        httpClient.DefaultRequestHeaders.UserAgent.ParseAdd(userAgent);
+        var response = await httpClient.GetAsync(uri);
+        var contentType = response.Content.Headers.ContentType.MediaType;
+        var content = await response.Content.ReadAsStringAsync();
+        switch (contentType.ToLower())
+        {
+            case "text/xml":
+            case "text/xml+oembed":
+                var xmlObj = XDocument.Parse(content);
+                return ParseOEmbedXml(xmlObj);
+            case "application/json":
+            case "application/json+oembed":
+                var obj = JObject.Parse(content);
+                return ParseOEmbedJson(obj);
+            default:
+                return null;
+        }
+    }
+
+    private OEmbedBase? ParseOEmbedJson(JObject obj)
+    {
+        var type = obj["type"]?.Value<string>();
+        if (type == null)
+        {
+            return null;
+        }
+
+        OEmbedBase result;
+        switch (type)
+        {
+            case OEmbedTypes.Video:
+                var video = new OEmbedVideo();
+                video.Type = OEmbedTypes.Video;
+                video.Height = obj["height"]?.Value<int>() ?? 0;
+                video.Width = obj["width"]?.Value<int>() ?? 0;
+                video.Html = obj["html"]?.Value<string>() ?? "";
+                result = video;
+                break;
+            case OEmbedTypes.Photo:
+                var photo = new OEmbedPhoto();
+                photo.Type = OEmbedTypes.Photo;
+                photo.Height = obj["height"]?.Value<int>() ?? 0;
+                photo.Width = obj["width"]?.Value<int>() ?? 0;
+                photo.Url = obj["url"]?.Value<string>() ?? "";
+                result = photo;
+                break;
+            case OEmbedTypes.Rich:
+                var rich = new OEmbedRich();
+                rich.Type = OEmbedTypes.Rich;
+                rich.Height = obj["height"]?.Value<int>() ?? 0;
+                rich.Width = obj["width"]?.Value<int>() ?? 0;
+                rich.Html = obj["html"]?.Value<string>() ?? "";
+                result = rich;
+                break;
+            case OEmbedTypes.Link:
+            default:
+                result = new OEmbedLink();
+                result.Type = OEmbedTypes.Link;
+                break;
+        }
+
+        result.Title = obj["title"]?.Value<string>(); 
+        result.Version = obj["version"]?.Value<string>() ?? "1.0";
+        result.AuthorName = obj["author_name"]?.Value<string>(); 
+        result.AuthorUrl = obj["author_url"]?.Value<string>(); 
+        result.ProviderName = obj["provider_name"]?.Value<string>(); 
+        result.ProviderUrl = obj["provider_url"]?.Value<string>(); 
+        result.CacheAge = obj["cache_age"]?.Value<int>(); //;
+        result.ThumbnailUrl = obj["thumbnail_url"]?.Value<string>(); 
+        result.ThumbnailHeight = obj["thumbnail_height"]?.Value<int>(); //;
+        result.ThumbnailWidth = obj["thumbnail_width"]?.Value<int>(); //;
+
+        return result;
+    }
+
+    private OEmbedBase? ParseOEmbedXml(XDocument doc)
+    {
+        var type = SafeXmlSelectValue(doc, "/oembed/type");
+        if (type == null)
+        {
+            return null;
+        }
+
+        OEmbedBase result;
+        switch (type)
+        {
+            case OEmbedTypes.Video:
+                var video = new OEmbedVideo();
+                video.Type = OEmbedTypes.Video;
+                video.Height = SafeXmlSelectInt(doc, "/oembed/height") ?? 0;
+                video.Width = SafeXmlSelectInt(doc, "/oembed/width") ?? 0;
+                video.Html = SafeXmlSelectValue(doc, "/oembed/html") ?? "";
+                result = video;
+                break;
+            case OEmbedTypes.Photo:
+                var photo = new OEmbedPhoto();
+                photo.Type = OEmbedTypes.Photo;
+                photo.Height = SafeXmlSelectInt(doc, "/oembed/height") ?? 0;
+                photo.Width = SafeXmlSelectInt(doc, "/oembed/width") ?? 0;
+                photo.Url = SafeXmlSelectValue(doc, "/oembed/url") ?? "";
+                result = photo;
+                break;
+            case OEmbedTypes.Rich:
+                var rich = new OEmbedRich();
+                rich.Type = OEmbedTypes.Rich;
+                rich.Height = SafeXmlSelectInt(doc, "/oembed/height") ?? 0;
+                rich.Width = SafeXmlSelectInt(doc, "/oembed/width") ?? 0;
+                rich.Html = SafeXmlSelectValue(doc, "/oembed/html") ?? "";
+                result = rich;
+                break;
+            case OEmbedTypes.Link:
+            default:
+                result = new OEmbedLink();
+                result.Type = OEmbedTypes.Link;
+                break;
+        }
+
+        result.Title = SafeXmlSelectValue(doc, "/oembed/title");
+        result.Version = SafeXmlSelectValue(doc, "/oembed/version") ?? "1.0";
+        result.AuthorName = SafeXmlSelectValue(doc, "/oembed/author_name");
+        result.AuthorUrl = SafeXmlSelectValue(doc, "/oembed/author_url");
+        result.ProviderName = SafeXmlSelectValue(doc, "/oembed/provider_name");
+        result.ProviderUrl = SafeXmlSelectValue(doc, "/oembed/provider_url");
+        result.CacheAge = SafeXmlSelectInt(doc, "/oembed/cache_age");
+        result.ThumbnailUrl = SafeXmlSelectValue(doc, "/oembed/thumbnail_url");
+        result.ThumbnailHeight = SafeXmlSelectInt(doc, "/oembed/thumbnail_height");
+        result.ThumbnailWidth = SafeXmlSelectInt(doc, "/oembed/thumbnail_width");
+
+        return result;
+    }
+
+    private string? SafeXmlSelectValue(XDocument doc, string xPath)
+    {
+        return doc.Document?.XPathSelectElement(xPath)?.Value;
+    }
+
+    private int? SafeXmlSelectInt(XDocument doc, string xPath)
+    {
+        var value = doc.Document?.XPathSelectElement(xPath)?.Value;
+        if (value == null)
+        {
+            return null;
+        }
+
+        return Int32.Parse(value);
     }
 }
